@@ -1,4 +1,4 @@
-# Bash script that creates/removes desktop entry for an AppImage
+# Bash/PHP scripts that creates/removes desktop entry for an AppImage
 
 ## Usage for the PHP script
 
