@@ -1,6 +1,31 @@
 #!/usr/bin/env php
 <?php
 
+function getDesktopCategories(): array {
+    $categorySet = [];
+    $desktopFiles = array_merge(
+        glob('/usr/share/applications/*.desktop'),
+        glob('/usr/local/share/applications/*.desktop'),
+        glob($_SERVER['HOME'] . '/.local/share/applications/*.desktop')
+    );
+    
+    foreach ($desktopFiles as $file) {
+        $contents = file_get_contents($file);
+        if (preg_match('/^Categories=(.+)$/m', $contents, $matches)) {
+            $categories = explode(';', $matches[1]);
+            foreach ($categories as $category) {
+                if (!empty($category)) {
+                    $categorySet[$category] = true;
+                }
+            }
+        }
+    }
+    
+    $categories = array_keys($categorySet);
+    sort($categories);
+    return $categories;
+}
+
 function promptSelection(string $prompt, array $options): string {
     echo $prompt . PHP_EOL;
     foreach ($options as $index => $option) {
@@ -40,7 +65,7 @@ function createDesktopEntry(string $appimagePath): void {
     copy("$tmpDir/squashfs-root/$iconSrc", $iconDst);
 
     // Select category
-    $categories = ['AudioVideo', 'Development', 'Education', 'Game', 'Graphics', 'Network', 'Office', 'Science', 'Settings', 'System', 'Utility'];
+    $categories = getDesktopCategories();
     $category = promptSelection("Choose a category:", $categories);
 
     // Create desktop entry
