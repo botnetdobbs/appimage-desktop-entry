@@ -1,6 +1,6 @@
 # Bash/PHP scripts that creates/removes desktop entry for an AppImage
 
-## Usage for the PHP script
+## Usage for the Bash script
 
 Make the file executable
 
@@ -20,7 +20,7 @@ Remove desktop entry:
 ./create-desktop-entry.sh /path/to/your/app.AppImage --remove
 ```
 
-## Usage for the Bash script
+## Usage for the PHP script
 
 Make the file executable
 
