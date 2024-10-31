@@ -104,6 +104,67 @@ function createSymlink(string $appimageFullPath): string
     }
 }
 
+function extractAppImage(string $appimageFullPath, string $tmpDir): void
+{    
+    echo "Extracting AppImage contents..." . PHP_EOL;
+    
+    exec("cd $tmpDir && $appimageFullPath --appimage-extract 2>&1", $output, $returnVar);
+
+    if ($returnVar !== 0) {
+        die("Failed to extract AppImage contents. Error: " . implode("\n", $output) . PHP_EOL);
+    }
+
+    if (!is_dir("$tmpDir/squashfs-root")) {
+        die("Extraction appeared to succeed but squashfs-root directory not found." . PHP_EOL);
+    }
+}
+
+function selectIcon(string $extractPath, string $appName): string {
+    // Change to the extraction directory
+    $currentDir = getcwd();
+    chdir($extractPath);
+    
+    // Get all PNG files in the current directory
+    $icons = glob("*.png");
+    
+    if (empty($icons)) {
+        die("No .png files found in " . getcwd() . PHP_EOL);
+    }
+    
+    echo "Choose icon: " . PHP_EOL;
+    foreach ($icons as $index => $filename) {
+        echo " " . ($index + 1) . ") $filename" . PHP_EOL;
+    }
+    
+    while (true) {
+        $selectedIndex = (int)readline("");
+        if ($selectedIndex > 0 && $selectedIndex <= count($icons)) {
+            break;
+        }
+        echo "Invalid selection. Please try again." . PHP_EOL;
+    }
+    
+    $iconSrc = $icons[$selectedIndex - 1];
+    $iconExt = pathinfo($iconSrc, PATHINFO_EXTENSION);
+    $iconDir = $_SERVER['HOME'] . '/.local/share/icons';
+    $iconDst = "$iconDir/$appName.$iconExt";
+    
+    // Create icons directory if it doesn't exist
+    if (!is_dir($iconDir)) {
+        mkdir($iconDir, 0755, true);
+    }
+    
+    // Copy the icon
+    if (!copy($iconSrc, $iconDst)) {
+        die("Failed to copy icon from $iconSrc to $iconDst" . PHP_EOL);
+    }
+    
+    // Restore original directory
+    chdir($currentDir);
+    
+    return $iconDst;
+}
+
 function createDesktopEntry(string $appimagePath): void
 {
     $appimageFullPath = realpath($appimagePath);
@@ -122,14 +183,11 @@ function createDesktopEntry(string $appimagePath): void
     // Extract AppImage
     $tmpDir = sys_get_temp_dir() . '/' . uniqid('appimage_');
     mkdir($tmpDir);
-    exec("\"$appimageFullPath\" --appimage-extract --destdir=\"$tmpDir\" > /dev/null 2>&1");
+
+    extractAppImage($appimageFullPath, $tmpDir);
 
     // Select icon
-    $icons = glob("$tmpDir/squashfs-root/*.{png,svg,xpm}", GLOB_BRACE);
-    $iconSrc = promptSelection("Choose an icon:", array_map('basename', $icons));
-    $iconExt = pathinfo($iconSrc, PATHINFO_EXTENSION);
-    $iconDst = "$iconDir/$appName.$iconExt";
-    copy("$tmpDir/squashfs-root/$iconSrc", $iconDst);
+    $iconPath = selectIcon("$tmpDir/squashfs-root", $appName);
 
     // Select category
     $categories = getDesktopCategories();
@@ -143,7 +201,7 @@ function createDesktopEntry(string $appimagePath): void
     $desktopEntry = "[Desktop Entry]\n" .
         "Name=$appName\n" .
         "Exec=$commandName\n" .  // Using the command name instead of full path
-        "Icon=$iconDst\n" .
+        "Icon=$iconPath\n" .
         "Type=Application\n" .
         "Terminal=false\n" .
         "Categories=$category\n";
