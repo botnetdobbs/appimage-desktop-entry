@@ -1,7 +1,7 @@
 #!/usr/bin/env php
 <?php
-
-function getDesktopCategories(): array {
+function getDesktopCategories(): array
+{
     $categorySet = [];
     $desktopFiles = array_merge(
         glob('/usr/share/applications/*.desktop'),
@@ -20,18 +20,19 @@ function getDesktopCategories(): array {
             }
         }
     }
-    
+
     $categories = array_keys($categorySet);
     sort($categories);
     return $categories;
 }
 
-function promptSelection(string $prompt, array $options): string {
+function promptSelection(string $prompt, array $options): string
+{
     echo $prompt . PHP_EOL;
     foreach ($options as $index => $option) {
         echo ($index + 1) . ") $option" . PHP_EOL;
     }
-    
+
     while (true) {
         $selection = (int)readline("Enter your selection: ");
         if ($selection > 0 && $selection <= count($options)) {
@@ -41,11 +42,77 @@ function promptSelection(string $prompt, array $options): string {
     }
 }
 
-function createDesktopEntry(string $appimagePath): void {
+function createSymlink(string $appimageFullPath): string
+{
+    $appName = pathinfo($appimageFullPath, PATHINFO_FILENAME);
+    $defaultName = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $appName));
+
+    echo "Suggested command name: $defaultName" . PHP_EOL;
+
+    while (true) {
+        $commandName = readline("Enter command name (press Enter to use suggested name): ");
+        $commandName = empty($commandName) ? $defaultName : strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $commandName));
+
+        // Check if command exists anywhere in PATH
+        $command = "command -v $commandName";
+        exec($command, $output, $returnVar);
+
+        if ($returnVar === 0) {
+            $existingPath = trim($output[0]);
+            echo "Warning: Command '$commandName' already exists at: $existingPath" . PHP_EOL;
+            $tryAgain = strtolower(readline("Would you like to try a different name? (Y/n): "));
+            if ($tryAgain !== 'n') {
+                continue;
+            }
+        }
+
+        $symlinkPath = "/usr/local/bin/$commandName";
+
+        // Check if symlink already exists
+        if (file_exists($symlinkPath)) {
+            echo "Warning: $symlinkPath already exists." . PHP_EOL;
+            if (is_link($symlinkPath)) {
+                $target = readlink($symlinkPath);
+                echo "It points to: $target" . PHP_EOL;
+            }
+            $override = strtolower(readline("Do you want to override it? (y/N): "));
+            if ($override !== 'y') {
+                $tryAgain = strtolower(readline("Would you like to try a different name? (Y/n): "));
+                if ($tryAgain !== 'n') {
+                    continue;
+                }
+                die("Aborted by user." . PHP_EOL);
+            }
+            // Remove existing symlink
+            $removeCommand = "sudo rm \"$symlinkPath\"";
+            exec($removeCommand, $output, $returnVar);
+            if ($returnVar !== 0) {
+                die("Failed to remove existing symlink. Make sure you have sudo privileges." . PHP_EOL);
+            }
+        }
+
+        // Create symlink using sudo
+        $command = "sudo ln -s \"$appimageFullPath\" \"$symlinkPath\"";
+        exec($command, $output, $returnVar);
+
+        if ($returnVar !== 0) {
+            die("Failed to create symlink. Make sure you have sudo privileges." . PHP_EOL);
+        }
+
+        echo "Symlink created: $symlinkPath" . PHP_EOL;
+        return $commandName;
+    }
+}
+
+function createDesktopEntry(string $appimagePath): void
+{
     $appimageFullPath = realpath($appimagePath);
     if (!$appimageFullPath || !is_file($appimageFullPath)) {
         die("File not found: $appimagePath" . PHP_EOL);
     }
+
+    // Create symlink first
+    $commandName = createSymlink($appimageFullPath);
 
     $appName = pathinfo($appimageFullPath, PATHINFO_FILENAME);
     $iconDir = $_SERVER['HOME'] . '/.local/share/icons';
@@ -72,26 +139,36 @@ function createDesktopEntry(string $appimagePath): void {
     if (!is_dir($desktopEntryDir)) {
         mkdir($desktopEntryDir, 0755, true);
     }
-    $desktopEntry = "[Desktop Entry]\n" .
-                    "Name=$appName\n" .
-                    "Exec=\"$appimageFullPath\"\n" .
-                    "Icon=$iconDst\n" .
-                    "Type=Application\n" .
-                    "Terminal=false\n" .
-                    "Categories=$category\n";
-    file_put_contents($desktopEntryPath, $desktopEntry);
 
+    $desktopEntry = "[Desktop Entry]\n" .
+        "Name=$appName\n" .
+        "Exec=$commandName\n" .  // Using the command name instead of full path
+        "Icon=$iconDst\n" .
+        "Type=Application\n" .
+        "Terminal=false\n" .
+        "Categories=$category\n";
+
+    file_put_contents($desktopEntryPath, $desktopEntry);
     echo "Desktop entry created: $desktopEntryPath" . PHP_EOL;
 
     // Clean up
     exec("rm -rf \"$tmpDir\"");
 }
 
-function removeDesktopEntry(string $appimagePath): void {
+function removeDesktopEntry(string $appimagePath): void
+{
     $appName = pathinfo($appimagePath, PATHINFO_FILENAME);
     $iconDir = $_SERVER['HOME'] . '/.local/share/icons';
     $desktopEntryDir = $_SERVER['HOME'] . '/.local/share/applications';
     $desktopEntryPath = "$desktopEntryDir/$appName.desktop";
+
+    // Remove symlink if exists
+    $defaultName = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $appName));
+    $symlinkPath = "/usr/local/bin/$defaultName";
+    if (is_link($symlinkPath)) {
+        exec("sudo rm \"$symlinkPath\"");
+        echo "Symlink removed: $symlinkPath" . PHP_EOL;
+    }
 
     // Remove desktop entry
     if (file_exists($desktopEntryPath)) {
