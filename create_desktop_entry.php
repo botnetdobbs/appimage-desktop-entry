@@ -1,5 +1,7 @@
 #!/usr/bin/env php
+
 <?php
+
 function getDesktopCategories(): array
 {
     $categorySet = [];
@@ -8,7 +10,7 @@ function getDesktopCategories(): array
         glob('/usr/local/share/applications/*.desktop'),
         glob($_SERVER['HOME'] . '/.local/share/applications/*.desktop')
     );
-    
+
     foreach ($desktopFiles as $file) {
         $contents = file_get_contents($file);
         if (preg_match('/^Categories=(.+)$/m', $contents, $matches)) {
@@ -105,9 +107,9 @@ function createSymlink(string $appimageFullPath): string
 }
 
 function extractAppImage(string $appimageFullPath, string $tmpDir): void
-{    
+{
     echo "Extracting AppImage contents..." . PHP_EOL;
-    
+
     exec("cd $tmpDir && $appimageFullPath --appimage-extract 2>&1", $output, $returnVar);
 
     if ($returnVar !== 0) {
@@ -119,23 +121,24 @@ function extractAppImage(string $appimageFullPath, string $tmpDir): void
     }
 }
 
-function selectIcon(string $extractPath, string $appName): string {
+function selectIcon(string $extractPath, string $appName): string
+{
     // Change to the extraction directory
     $currentDir = getcwd();
     chdir($extractPath);
-    
+
     // Get all PNG files in the current directory
     $icons = glob("*.png");
-    
+
     if (empty($icons)) {
         die("No .png files found in " . getcwd() . PHP_EOL);
     }
-    
+
     echo "Choose icon: " . PHP_EOL;
     foreach ($icons as $index => $filename) {
         echo " " . ($index + 1) . ") $filename" . PHP_EOL;
     }
-    
+
     while (true) {
         $selectedIndex = (int)readline("");
         if ($selectedIndex > 0 && $selectedIndex <= count($icons)) {
@@ -143,25 +146,25 @@ function selectIcon(string $extractPath, string $appName): string {
         }
         echo "Invalid selection. Please try again." . PHP_EOL;
     }
-    
+
     $iconSrc = $icons[$selectedIndex - 1];
     $iconExt = pathinfo($iconSrc, PATHINFO_EXTENSION);
     $iconDir = $_SERVER['HOME'] . '/.local/share/icons';
     $iconDst = "$iconDir/$appName.$iconExt";
-    
+
     // Create icons directory if it doesn't exist
     if (!is_dir($iconDir)) {
         mkdir($iconDir, 0755, true);
     }
-    
+
     // Copy the icon
     if (!copy($iconSrc, $iconDst)) {
         die("Failed to copy icon from $iconSrc to $iconDst" . PHP_EOL);
     }
-    
+
     // Restore original directory
     chdir($currentDir);
-    
+
     return $iconDst;
 }
 
@@ -176,14 +179,13 @@ function createDesktopEntry(string $appimagePath): void
     $commandName = createSymlink($appimageFullPath);
 
     $appName = pathinfo($appimageFullPath, PATHINFO_FILENAME);
-    $iconDir = $_SERVER['HOME'] . '/.local/share/icons';
     $desktopEntryDir = $_SERVER['HOME'] . '/.local/share/applications';
     $desktopEntryPath = "$desktopEntryDir/$appName.desktop";
 
-    // Extract AppImage
     $tmpDir = sys_get_temp_dir() . '/' . uniqid('appimage_');
     mkdir($tmpDir);
 
+    // Extract AppImage
     extractAppImage($appimageFullPath, $tmpDir);
 
     // Select icon
