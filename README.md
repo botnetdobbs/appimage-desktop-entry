@@ -1,41 +1,54 @@
-# Bash/PHP scripts that creates/removes desktop entry for an AppImage
+# AppImage Desktop Entry Manager
 
-## Usage for the Bash script
+A PHP & Bash command-line tool that simplifies the process of integrating AppImage applications into your Linux desktop environment. It automatically creates desktop entries, manages icons, and sets up command-line shortcuts for your AppImage applications.
 
-Make the file executable
+## Requirements
 
-```
-chmod +x create_desktop_entry.sh
-```
+- PHP 7.0 or higher
+- Linux environment with desktop entry support
 
-Create desktop entry:
+## Installation
 
-```
-./create-desktop-entry.sh /path/to/your/app.AppImage
-```
-
-Remove desktop entry:
-
-```
-./create-desktop-entry.sh /path/to/your/app.AppImage --remove
+1. Download the script:
+```bash
+git clone https://github.com/botnetdobbs/appimage-desktop-entry.git
+cd appimage-desktop-entry
 ```
 
-## Usage for the PHP script
-
-Make the file executable
-
-```
-chmod +x create_desktop_entry.php
+2. Make it executable:
+```bash
+chmod +x create_desktop_entry.{php,sh}
 ```
 
-Create desktop entry:
+## Usage
 
-```
-./create-desktop-entry.php /path/to/your/app.AppImage
+### Creating a Desktop Entry
+
+```bash
+./create_desktop_entry.php /home/user/AppImages/application.AppImage
+# OR using bash version
+./create_desktop_entry.sh /home/user/AppImages/application.AppImage
 ```
 
-Remove desktop entry:
+The script will:
+1. Create a system-wide command shortcut
+2. Extract the application icon
+3. Let you choose from available desktop categories
+4. Create a desktop entry file
 
+### Removing a Desktop Entry
+
+```bash
+./create_desktop_entry.php /home/user/AppImages/application.AppImage --remove
+# Or using bash version
+./create_desktop_entry.sh /home/user/AppImages/application.AppImage --remove
 ```
-./create-desktop-entry.php /path/to/your/app.AppImage --remove
-```
+
+This will remove:
+- The desktop entry file
+- The installed icon
+- The command shortcut
+
+## License
+
+MIT
