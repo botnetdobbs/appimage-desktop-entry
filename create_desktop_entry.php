@@ -110,6 +110,14 @@ function extractAppImage(string $appimageFullPath, string $tmpDir): void
 {
     echo "Extracting AppImage contents..." . PHP_EOL;
 
+    // check if file is executable
+    if (!is_executable($appimageFullPath)) {
+        echo "Making AppImage executable..." . PHP_EOL;
+        if(! chmod($appimageFullPath, 0755)) {
+            die("Failed to make AppImage executable." . PHP_EOL);
+        }
+    }
+
     exec("cd $tmpDir && $appimageFullPath --appimage-extract 2>&1", $output, $returnVar);
 
     if ($returnVar !== 0) {
